@@ -41,6 +41,8 @@
 -export([ ct/2, eunit/2, 'send-coveralls'/2 ]).
 -export([ do_coveralls/5 ]).
 
+-export([get_coverdata/2]).
+
 %%=============================================================================
 %% API functions
 ct(Conf, _) ->
@@ -64,7 +66,7 @@ coveralls(Conf, Task) ->
   do_coveralls(ConvertAndSend, Get, GetLocal, MaybeSkip, Task).
 
 do_coveralls(ConvertAndSend, Get, GetLocal, MaybeSkip, Task) ->
-  File         = get_coverdata(GetLocal, Task),
+  File         = get_coverdata(Task, GetLocal),
   ServiceName  = GetLocal(coveralls_service_name, undef),
   ServiceJobId = GetLocal(coveralls_service_job_id, undef),
   F            = fun(X) -> X =:= undef orelse X =:= false end,
@@ -88,21 +90,23 @@ do_coveralls(ConvertAndSend, Get, GetLocal, MaybeSkip, Task) ->
       end
   end.
 
-get_coverdata(GetLocal, ct) ->
+get_coverdata(ct, GetLocal) ->
   case GetLocal(coveralls_coverdata, undef) of
        undef ->
-               File = GetLocal(coveralls_coverspec, undef),
+               File = GetLocal('coveralls_coverspec', undef),
+               io:format("Found coverspec file: \"~p\"", [File]),
                try_readspec(File);
        Else -> Else
   end;
-get_coverdata(GetLocal, eunit) ->
+get_coverdata(eunit, GetLocal) ->
   GetLocal(coveralls_coverdata, undef).
 
 try_readspec(undef) -> undef; 
 try_readspec(File) ->
   try
       {ok, Items} = file:consult(File),
-      [{export, X} || {export, X} <- Items]
+      [File] = [ F || {export, F} <- Items],
+      File
   catch
       exit:_ -> undef;
       error:_ -> undef
