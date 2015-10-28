@@ -64,7 +64,7 @@ coveralls(Conf, Task) ->
   do_coveralls(ConvertAndSend, Get, GetLocal, MaybeSkip, Task).
 
 do_coveralls(ConvertAndSend, Get, GetLocal, MaybeSkip, Task) ->
-  File         = GetLocal(coveralls_coverdata, undef),
+  File         = get_coverdata(GetLocal, Task),
   ServiceName  = GetLocal(coveralls_service_name, undef),
   ServiceJobId = GetLocal(coveralls_service_job_id, undef),
   F            = fun(X) -> X =:= undef orelse X =:= false end,
@@ -87,6 +87,27 @@ do_coveralls(ConvertAndSend, Get, GetLocal, MaybeSkip, Task) ->
         _ -> MaybeSkip()
       end
   end.
+
+get_coverdata(GetLocal, ct) ->
+  case GetLocal(coveralls_coverdata, undef) of
+       undef ->
+               File = GetLocal(coveralls_coverspec, undef),
+               try_readspec(File);
+       Else -> Else
+  end;
+get_coverdata(GetLocal, eunit) ->
+  GetLocal(coveralls_coverdata, undef).
+
+try_readspec(undef) -> undef; 
+try_readspec(File) ->
+  try
+      {ok, Items} = file:consult(File),
+      [{export, X} || {export, X} <- Items]
+  catch
+      exit:_ -> undef;
+      error:_ -> undef
+  end.
+
 
 
 %%=============================================================================
